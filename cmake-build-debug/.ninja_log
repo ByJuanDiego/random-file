@@ -1,0 +1,5 @@
+# ninja log v5
+0	1517	1681476314182259918	CMakeFiles/random_file.dir/main.cpp.o	b5c0271dfdb3db7c
+1520	1786	1681476314454264858	random_file	73872f0d5e197be9
+1	1234	1681476366048201891	CMakeFiles/random_file.dir/main.cpp.o	b5c0271dfdb3db7c
+1234	1395	1681476366209204815	random_file	73872f0d5e197be9
