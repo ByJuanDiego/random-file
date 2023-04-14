@@ -53,16 +53,68 @@ private:
 
     std::map<std::string, long> index;  //< Ordered access to records logical position
 
-public:
+    /*
+    * Writes the index in the disk-file
+    */
+    void writeIndex() {
+        index_file.open(this->index_file_name, std::ios::binary | std::ios::out);
 
-    explicit RandomFile(std::string data_file_name, std::string index_file_name)
-            : data_file_name(std::move(data_file_name)),
-              index_file_name(std::move(index_file_name)) {
+        // Write pair info to file
+        for (auto &[key, position]: index) {
+            // Write the record-key
+            char str[30];
+            strcpy(str, key.c_str());
+            index_file.write(str, 30);
+
+            // Write record physical position
+            index_file.write((char *) &position, sizeof(long));
+        }
+
+        index_file.close();
     }
 
     /*
-    * Truncates the index-file information with the pairs key-position stored in `std::map`
+    * Reads the disk-file index to load the information in RAM memory
     */
+    void readIndex() {
+        index_file.open(index_file_name, std::ios::in | std::ios::binary);
+        if (!index_file.is_open()) {
+            throw std::runtime_error("Cannot open the file: " + index_file_name);
+        }
+
+        int index_record_sz = 30 + sizeof(long);
+
+        while (!index_file.eof()) {
+            char *buffer = new char[index_record_sz];
+            index_file.read(buffer, index_record_sz);
+
+            char key[30];
+            long position;
+
+            std::memcpy(key, buffer, 30);
+            std::memcpy(&position, buffer + 30, sizeof(long));
+
+            delete[] buffer;
+
+            if (index_file.eof()) {
+                break;
+            }
+            index[std::string(key)] = position;
+        }
+
+        index_file.close();
+    }
+
+public:
+
+    /// Loads the index-file information in `index`
+    explicit RandomFile(std::string data_file_name, std::string index_file_name)
+            : data_file_name(std::move(data_file_name)),
+              index_file_name(std::move(index_file_name)) {
+        readIndex();
+    }
+
+    /// Truncates the index-file information with the pairs key-position stored in `std::map`
     ~RandomFile() {
         writeIndex();
     }
@@ -74,11 +126,11 @@ public:
         data_file.open(this->data_file_name, std::ios::app | std::ios::ate | std::ios::binary);
 
         //< Writes the record in the data file
-        long physicalPos = data_file.tellp();
+        long position = data_file.tellp();
         data_file.write((char *) &record, sizeof(Record));
 
-        //< Stores the logical position of the record in memory
-        this->index[record.getKey()] = (long) (physicalPos / sizeof(Record));
+        //< Stores the physical position of the record in memory
+        this->index[record.getKey()] = position;
 
         data_file.close();
     }
@@ -92,90 +144,77 @@ public:
         }
     }
 
+    /*
+    * Shows all the records (unordered) using the main disk-file `data.dat`
+    */
     void scanAll() {
         std::vector<Record> records;
-
         data_file.open(data_file_name, std::ios::in | std::ios::binary);
 
         if (!data_file.is_open()) {
-            return;
+            throw std::runtime_error("Cannot open the file: " + data_file_name);
         }
 
         data_file.seekg(0, std::ios::end);
         long length = data_file.tellg();
-        data_file.seekg(0, std::ios::beg);
-
-        /// Creates a buffer with the size of the data-file in bytes
-        char *buffer = new char[length];
-        /// Stores the data information in the buffer
-        data_file.read(buffer, length);
 
         for (int i = 0; i < length; i += sizeof(Record)) {
             Record record{};
 
-            // Access the buffer position where the ith record is located
-            char *current = (buffer + i);
+            // Access the record position
+            data_file.seekg(i);
 
-            // Copy fields from buffer to struct
+            // Copy fields from disk to RAM struct
+            data_file.read((char *) &record, sizeof(Record));
 
-            strncpy(record.name, current, sizeof(record.name));
-            current += sizeof(record.name); //< advances `record.name` positions
-
-            strncpy(record.career, current, sizeof(record.career));
-            current += sizeof(record.career); //< advances `record.career` positions
-
-            memcpy(&record.cycle, current, sizeof(record.cycle));
-
+            // push the record
             records.push_back(record);
         }
-
-        delete[] buffer;
 
         for (Record &record: records) {
             std::cout << record.toString() << std::endl;
         }
+
+        data_file.close();
     }
 
     /*
-    * Shows all the records sorted by key using the disk-file
+    * Shows all the records sorted by key using the `index` to locate the records in `data.dat`
     */
     void scanAllByIndex() {
+        data_file.open(data_file_name, std::ios::in | std::ios::binary);
+        if (!data_file.is_open()) {
+            throw std::runtime_error("Cannot open the file: " + data_file_name);
+        }
+
         for (auto const &[key, position]: index) {
-            data_file.open(data_file_name, std::ios::in | std::ios::binary);
-
-            if (!data_file.is_open()) {
-                throw std::runtime_error("Cannot open the file");
-            }
-
-            long offset = (long) (position * sizeof(Record));
-            data_file.seekg(offset, std::ios::beg);
-
             Record record{};
+            data_file.seekg(position);
             data_file.read((char *) &record, sizeof(Record));
 
             std::cout << record.toString() << std::endl;
         }
+        data_file.close();
     }
 
-    /*
-    * Writes the index to the disk-file
-    */
-    void writeIndex() {
-        index_file.open(this->index_file_name, std::ios::binary | std::ios::trunc);
+    Record search(const std::string &key) {
+        auto it = index.find(key);
+        if (it == index.end()) {
+            throw std::runtime_error("The record with key: " + key + " do not exists");
+        }
+        long position = it->second;
 
-        // Write pair info to file
-        for (auto &[key, position]: index) {
-
-            // Write the record-key
-            char str[30]{-1};
-            strcpy(str, key.c_str());
-            index_file.write(str, 30);
-
-            // Write record logical position
-            index_file.write((char *) &position, sizeof(long));
+        data_file.open(data_file_name, std::ios::in | std::ios::binary);
+        if (!data_file.is_open()) {
+            throw std::runtime_error("Cannot open the file: " + data_file_name);
         }
 
-        index_file.close();
+        Record record{};
+
+        data_file.seekg(position);
+        data_file.read((char *) &record, sizeof(Record));
+        data_file.close();
+        return record;
     }
 };
 
