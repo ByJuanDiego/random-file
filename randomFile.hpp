@@ -51,7 +51,7 @@ private:
     std::fstream index_file;
     std::string index_file_name;
 
-    std::map<std::string, long> index;  //< Ordered access to records logical position
+    std::map<std::string, long> index;  //< Ordered access to records physical position
 
     /*
     * Writes the index in the disk-file
