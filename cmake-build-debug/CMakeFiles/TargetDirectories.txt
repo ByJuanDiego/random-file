@@ -1,3 +1,0 @@
-/home/juandiego/CLionProjects/data-base-2/random-file/cmake-build-debug/CMakeFiles/random_file.dir
-/home/juandiego/CLionProjects/data-base-2/random-file/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/juandiego/CLionProjects/data-base-2/random-file/cmake-build-debug/CMakeFiles/rebuild_cache.dir
