@@ -123,6 +123,10 @@ public:
     * Writes the record information in the data disk-file and in the memory `std::map`
     */
     void write(Record &record) {
+        if (index.find(record.getKey()) != index.end()) {
+            throw std::runtime_error("Error! Cannot write a record with a repeated key!\n");
+        }
+
         data_file.open(this->data_file_name, std::ios::app | std::ios::ate | std::ios::binary);
 
         //< Writes the record in the data file

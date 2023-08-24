@@ -1,15 +1,22 @@
 #include "randomFile.hpp"
 
-void writeFile(RandomFile& randomFile) {
+void writeFile(RandomFile& randomFile, int n) {
     Record record {};
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < n; i++) {
         record.setData();
-        randomFile.write(record);
+
+        try {
+            randomFile.write(record);
+        }
+        catch (std::exception& e) {
+            std::cout << std::endl << e.what();
+        }
+
         std::cout << std::endl;
     }
 }
 
-void readFile(RandomFile& randomFile) {
+[[maybe_unused]] void readFile(RandomFile& randomFile) {
     std::cout << "-------- show index --- \n";
     randomFile.showIndex();
     std::cout << "-------- show data --- \n";
@@ -30,7 +37,8 @@ void searchRecord(RandomFile& randomFile) {
 
 int main() {
     RandomFile randomFile("data.dat", "index.dat");
-    writeFile(randomFile);
-    readFile(randomFile);
+    writeFile(randomFile, 4);
     searchRecord(randomFile);
+
+    return EXIT_SUCCESS;
 }
